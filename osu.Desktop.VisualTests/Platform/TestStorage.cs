@@ -15,7 +15,7 @@ namespace osu.Desktop.VisualTests.Platform
         public TestStorage(string baseName) : base(baseName)
         {
         }
-        
+
         public override SQLiteConnection GetDatabase(string name)
         {
             ISQLitePlatform platform;
@@ -23,7 +23,7 @@ namespace osu.Desktop.VisualTests.Platform
                 platform = new SQLitePlatformWin32();
             else
                 platform = new SQLitePlatformGeneric();
-            return new SQLiteConnection(platform, $@":memory:");
+            return new SQLiteConnection(platform, @":memory:");
         }
     }
 }

@@ -3,13 +3,12 @@
 
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
-using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Input;
 using osu.Game.Graphics.Sprites;
-using osu.Game.Overlays;
 using OpenTK.Graphics;
+using osu.Framework.Extensions.Color4Extensions;
 
 namespace osu.Game.Graphics.UserInterface
 {
@@ -33,6 +32,11 @@ namespace osu.Game.Graphics.UserInterface
             Height = 40;
             TextContainer.Height = 0.5f;
             CornerRadius = 5;
+
+            Current.DisabledChanged += disabled =>
+            {
+                Alpha = disabled ? 0.3f : 1;
+            };
         }
 
         [BackgroundDependencyLoader]

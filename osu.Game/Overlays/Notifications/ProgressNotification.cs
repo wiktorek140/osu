@@ -2,13 +2,12 @@
 // Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu/master/LICENCE
 
 using System;
-using System.Diagnostics;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
-using osu.Framework.Graphics.Transformations;
 using osu.Game.Graphics;
+using osu.Game.Graphics.Sprites;
 using OpenTK;
 using OpenTK.Graphics;
 
@@ -90,7 +89,7 @@ namespace osu.Game.Overlays.Notifications
 
         private ProgressNotificationState state;
 
-        protected virtual Notification CreateCompletionNotification() => new ProgressCompletionNotification(this)
+        protected virtual Notification CreateCompletionNotification() => new ProgressCompletionNotification()
         {
             Activated = CompletionClickAction,
             Text = $"Task \"{Text}\" has completed!"
@@ -104,12 +103,12 @@ namespace osu.Game.Overlays.Notifications
 
         public override bool DisplayOnTop => false;
 
-        private ProgressBar progressBar;
+        private readonly ProgressBar progressBar;
         private Color4 colourQueued;
         private Color4 colourActive;
         private Color4 colourCancelled;
 
-        private SpriteText textDrawable;
+        private readonly SpriteText textDrawable;
 
         public ProgressNotification()
         {
@@ -118,7 +117,7 @@ namespace osu.Game.Overlays.Notifications
                 RelativeSizeAxes = Axes.Both,
             });
 
-            Content.Add(textDrawable = new SpriteText
+            Content.Add(textDrawable = new OsuSpriteText
             {
                 TextSize = 16,
                 Colour = OsuColour.Gray(128),
@@ -168,7 +167,7 @@ namespace osu.Game.Overlays.Notifications
         /// </summary>
         public Func<bool> CompletionClickAction;
 
-        class ProgressBar : Container
+        private class ProgressBar : Container
         {
             private Box box;
 

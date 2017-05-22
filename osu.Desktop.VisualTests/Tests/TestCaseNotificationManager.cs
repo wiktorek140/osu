@@ -3,22 +3,20 @@
 
 using System.Collections.Generic;
 using osu.Framework.Graphics;
-using osu.Framework.GameModes.Testing;
+using osu.Framework.Testing;
 using osu.Framework.MathUtils;
-using osu.Framework.Timing;
 using osu.Game.Overlays;
 using System.Linq;
 using osu.Game.Overlays.Notifications;
-using osu.Game.Screens.Backgrounds;
+using osu.Framework.Graphics.Containers;
 
 namespace osu.Desktop.VisualTests.Tests
 {
-    class TestCaseNotificationManager : TestCase
+    internal class TestCaseNotificationManager : TestCase
     {
-        public override string Name => @"Notification Manager";
         public override string Description => @"I handle notifications";
 
-        NotificationManager manager;
+        private NotificationManager manager;
 
         public override void Reset()
         {
@@ -26,21 +24,19 @@ namespace osu.Desktop.VisualTests.Tests
 
             progressingNotifications.Clear();
 
-            AddInternal(new BackgroundModeDefault() { Depth = 10 });
-
             Content.Add(manager = new NotificationManager
             {
                 Anchor = Anchor.TopRight,
                 Origin = Anchor.TopRight,
             });
 
-            AddToggle(@"show", manager.ToggleVisibility);
+            AddToggleStep(@"show", state => manager.State = state ? Visibility.Visible : Visibility.Hidden);
 
-            AddButton(@"simple #1", sendNotification1);
-            AddButton(@"simple #2", sendNotification2);
-            AddButton(@"progress #1", sendProgress1);
-            AddButton(@"progress #2", sendProgress2);
-            AddButton(@"barrage", () => sendBarrage());
+            AddStep(@"simple #1", sendNotification1);
+            AddStep(@"simple #2", sendNotification2);
+            AddStep(@"progress #1", sendProgress1);
+            AddStep(@"progress #2", sendProgress2);
+            AddStep(@"barrage", () => sendBarrage());
         }
 
         private void sendBarrage(int remaining = 100)
@@ -99,7 +95,7 @@ namespace osu.Desktop.VisualTests.Tests
             progressingNotifications.Add(n);
         }
 
-        List<ProgressNotification> progressingNotifications = new List<ProgressNotification>();
+        private readonly List<ProgressNotification> progressingNotifications = new List<ProgressNotification>();
 
         private void sendProgress1()
         {

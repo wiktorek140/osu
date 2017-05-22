@@ -6,6 +6,7 @@ using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Sprites;
 using osu.Game.Graphics;
+using osu.Game.Graphics.Sprites;
 
 namespace osu.Game.Overlays.Notifications
 {
@@ -33,26 +34,30 @@ namespace osu.Game.Overlays.Notifications
             }
         }
 
-        private SpriteText textDrawable;
-        private TextAwesome iconDrawable;
+        private readonly SpriteText textDrawable;
+        private readonly TextAwesome iconDrawable;
+
+        protected Box IconBackgound;
 
         public SimpleNotification()
         {
             IconContent.Add(new Drawable[]
             {
-                new Box
+                IconBackgound = new Box
                 {
                     RelativeSizeAxes = Axes.Both,
-                    ColourInfo = ColourInfo.GradientVertical(OsuColour.Gray(0.2f), OsuColour.Gray(0.5f))
+                    ColourInfo = ColourInfo.GradientVertical(OsuColour.Gray(0.2f), OsuColour.Gray(0.6f))
                 },
                 iconDrawable = new TextAwesome
                 {
                     Anchor = Anchor.Centre,
-                    Icon = icon ,
+                    Origin = Anchor.Centre,
+                    Icon = icon,
+                    TextSize = 20
                 }
             });
 
-            Content.Add(textDrawable = new SpriteText
+            Content.Add(textDrawable = new OsuSpriteText
             {
                 TextSize = 16,
                 Colour = OsuColour.Gray(128),
@@ -77,10 +82,8 @@ namespace osu.Game.Overlays.Notifications
 
             set
             {
-                if (base.Read = value)
-                    Light.FadeOut(100);
-                else
-                    Light.FadeIn(100);
+                base.Read = value;
+                Light.FadeTo(value ? 1 : 0, 100);
             }
         }
     }

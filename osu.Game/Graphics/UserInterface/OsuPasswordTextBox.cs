@@ -1,10 +1,9 @@
 ﻿// Copyright (c) 2007-2017 ppy Pty Ltd <contact@ppy.sh>.
-// Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu-framework/master/LICENCE
+// Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu/master/LICENCE
 
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
-using osu.Framework.Graphics.Transformations;
 using OpenTK;
 using OpenTK.Graphics;
 
@@ -14,9 +13,11 @@ namespace osu.Game.Graphics.UserInterface
     {
         protected override Drawable GetDrawableCharacter(char c) => new PasswordMaskChar(CalculatedTextSize);
 
+        public override bool AllowClipboardExport => false;
+
         public class PasswordMaskChar : Container
         {
-            private CircularContainer circle;
+            private readonly CircularContainer circle;
 
             public PasswordMaskChar(float size)
             {
@@ -26,6 +27,8 @@ namespace osu.Game.Graphics.UserInterface
                     circle = new CircularContainer
                     {
                         Anchor = Anchor.Centre,
+                        Origin = Anchor.Centre,
+                        Masking = true,
                         Alpha = 0,
                         RelativeSizeAxes = Axes.Both,
                         Size = new Vector2(0.8f, 0),

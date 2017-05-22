@@ -1,24 +1,31 @@
 ﻿// Copyright (c) 2007-2017 ppy Pty Ltd <contact@ppy.sh>.
 // Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu/master/LICENCE
 
+using osu.Framework.Configuration;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
-using osu.Framework.Graphics.Transformations;
+using osu.Framework.Graphics.Transforms;
+using osu.Game.Graphics.Sprites;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using osu.Game.Graphics.Sprites;
+using OpenTK.Graphics;
 
 namespace osu.Game.Graphics.UserInterface
 {
-    public abstract class RollingCounter<T> : Container
+    public abstract class RollingCounter<T> : Container, IHasAccentColour
     {
+        /// <summary>
+        /// The current value.
+        /// </summary>
+        public Bindable<T> Current = new Bindable<T>();
+
         /// <summary>
         /// Type of the Transform to use.
         /// </summary>
         /// <remarks>
-        /// Must be a subclass of Transform<T>
+        /// Must be a subclass of Transform(T)
         /// </remarks>
         protected virtual Type TransformType => typeof(Transform<T>);
 
@@ -38,7 +45,7 @@ namespace osu.Game.Graphics.UserInterface
         /// <summary>
         /// Easing for the counter rollover animation.
         /// </summary>
-        protected virtual EasingTypes RollingEasing => EasingTypes.Out;
+        protected virtual EasingTypes RollingEasing => EasingTypes.OutQuint;
 
         private T displayedCount;
 
@@ -60,32 +67,6 @@ namespace osu.Game.Graphics.UserInterface
             }
         }
 
-        private T count;
-
-        /// <summary>
-        /// Actual value of counter.
-        /// </summary>
-        public virtual T Count
-        {
-            get
-            {
-                return count;
-            }
-            set
-            {
-                count = value;
-                if (IsLoaded)
-                {
-                    TransformCount(displayedCount, count);
-                }
-            }
-        }
-
-        public void Set(T value)
-        {
-            Count = value;
-        }
-
         public abstract void Increment(T amount);
 
         private float textSize;
@@ -100,6 +81,12 @@ namespace osu.Game.Graphics.UserInterface
             }
         }
 
+        public Color4 AccentColour
+        {
+            get { return DisplayedCountSpriteText.Colour; }
+            set { DisplayedCountSpriteText.Colour = value; }
+        }
+
         /// <summary>
         /// Skeleton of a numeric counter which value rolls over time.
         /// </summary>
@@ -107,24 +94,28 @@ namespace osu.Game.Graphics.UserInterface
         {
             Children = new Drawable[]
             {
-                DisplayedCountSpriteText = new OsuSpriteText(),
+                DisplayedCountSpriteText = new OsuSpriteText
+                {
+                    Font = @"Venera"
+                },
             };
 
             TextSize = 40;
             AutoSizeAxes = Axes.Both;
 
-            DisplayedCount = Count;
+            DisplayedCount = Current;
 
-            DisplayedCountSpriteText.Text = FormatCount(count);
-            DisplayedCountSpriteText.Anchor = Anchor;
-            DisplayedCountSpriteText.Origin = Origin;
+            Current.ValueChanged += newValue =>
+            {
+                if (IsLoaded) TransformCount(displayedCount, newValue);
+            };
         }
 
         protected override void LoadComplete()
         {
             base.LoadComplete();
 
-            Flush(false, TransformType);
+            DisplayedCountSpriteText.Text = FormatCount(Current);
         }
 
         /// <summary>
@@ -133,7 +124,7 @@ namespace osu.Game.Graphics.UserInterface
         /// <param name="count">New count value.</param>
         public virtual void SetCountWithoutRolling(T count)
         {
-            Count = count;
+            Current.Value = count;
             StopRolling();
         }
 
@@ -143,7 +134,7 @@ namespace osu.Game.Graphics.UserInterface
         public virtual void StopRolling()
         {
             Flush(false, TransformType);
-            DisplayedCount = Count;
+            DisplayedCount = Current;
         }
 
         /// <summary>
@@ -190,7 +181,7 @@ namespace osu.Game.Graphics.UserInterface
         protected virtual void TransformCount(T currentValue, T newValue)
         {
             Debug.Assert(
-                TransformType.IsSubclassOf(typeof(Transform<T>)) || TransformType == typeof(Transform<T>),
+                typeof(Transform<T>).IsAssignableFrom(TransformType),
                 @"transformType should be a subclass of Transform<T>."
             );
 
@@ -208,7 +199,7 @@ namespace osu.Game.Graphics.UserInterface
 
             if (RollingDuration < 1)
             {
-                DisplayedCount = Count;
+                DisplayedCount = Current;
                 return;
             }
 
@@ -217,8 +208,8 @@ namespace osu.Game.Graphics.UserInterface
                     ? GetProportionalDuration(currentValue, newValue)
                     : RollingDuration;
 
-            transform.StartTime = Time.Current;
-            transform.EndTime = Time.Current + rollingTotalDuration;
+            transform.StartTime = TransformStartTime;
+            transform.EndTime = TransformStartTime + rollingTotalDuration;
             transform.StartValue = currentValue;
             transform.EndValue = newValue;
             transform.Easing = RollingEasing;

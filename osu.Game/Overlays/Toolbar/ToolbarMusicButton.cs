@@ -6,7 +6,7 @@ using osu.Game.Graphics;
 
 namespace osu.Game.Overlays.Toolbar
 {
-    class ToolbarMusicButton : ToolbarOverlayToggleButton
+    internal class ToolbarMusicButton : ToolbarOverlayToggleButton
     {
         public ToolbarMusicButton()
         {
@@ -17,7 +17,6 @@ namespace osu.Game.Overlays.Toolbar
         private void load(MusicController music)
         {
             StateContainer = music;
-            Action = music.ToggleVisibility;
         }
     }
 }

@@ -1,15 +1,11 @@
 ﻿// Copyright (c) 2007-2017 ppy Pty Ltd <contact@ppy.sh>.
 // Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu/master/LICENCE
 
-using System;
-using osu.Framework;
-using osu.Framework.Configuration;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Input;
 using osu.Framework.Threading;
 using OpenTK;
-using osu.Framework.Graphics.Primitives;
 using osu.Framework.Audio;
 using osu.Framework.Allocation;
 
@@ -17,11 +13,11 @@ namespace osu.Game.Graphics.UserInterface.Volume
 {
     internal class VolumeControl : OverlayContainer
     {
-        private VolumeMeter volumeMeterMaster;
+        private readonly VolumeMeter volumeMeterMaster;
 
         protected override bool HideOnEscape => false;
 
-        private void volumeChanged(object sender, EventArgs e)
+        private void volumeChanged(double newVolume)
         {
             Show();
             schedulePopOut();
@@ -35,7 +31,7 @@ namespace osu.Game.Graphics.UserInterface.Volume
 
             Children = new Drawable[]
             {
-                new FlowContainer
+                new FillFlowContainer
                 {
                     AutoSizeAxes = Axes.Both,
                     Anchor = Anchor.BottomRight,
@@ -84,19 +80,19 @@ namespace osu.Game.Graphics.UserInterface.Volume
         [BackgroundDependencyLoader]
         private void load(AudioManager audio)
         {
-            volumeMeterMaster.Bindable.Weld(audio.Volume);
-            volumeMeterEffect.Bindable.Weld(audio.VolumeSample);
-            volumeMeterMusic.Bindable.Weld(audio.VolumeTrack);
+            volumeMeterMaster.Bindable.BindTo(audio.Volume);
+            volumeMeterEffect.Bindable.BindTo(audio.VolumeSample);
+            volumeMeterMusic.Bindable.BindTo(audio.VolumeTrack);
         }
 
-        ScheduledDelegate popOutDelegate;
+        private ScheduledDelegate popOutDelegate;
 
-        private VolumeMeter volumeMeterEffect;
-        private VolumeMeter volumeMeterMusic;
+        private readonly VolumeMeter volumeMeterEffect;
+        private readonly VolumeMeter volumeMeterMusic;
 
         protected override void PopIn()
         {
-            ClearTransformations();
+            ClearTransforms();
             FadeIn(100);
 
             schedulePopOut();

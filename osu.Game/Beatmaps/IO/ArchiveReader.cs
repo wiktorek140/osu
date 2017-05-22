@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.IO;
 using osu.Framework.IO.Stores;
 using osu.Framework.Platform;
-using osu.Game.Database;
 
 namespace osu.Game.Beatmaps.IO
 {
@@ -14,13 +13,13 @@ namespace osu.Game.Beatmaps.IO
     {
         private class Reader
         {
-            public Func<BasicStorage, string, bool> Test { get; set; }
-            public Type Type { get; set; }
+            public Func<Storage, string, bool> Test;
+            public Type Type;
         }
 
-        private static List<Reader> readers { get; } = new List<Reader>();
+        private static readonly List<Reader> readers = new List<Reader>();
 
-        public static ArchiveReader GetReader(BasicStorage storage, string path)
+        public static ArchiveReader GetReader(Storage storage, string path)
         {
             foreach (var reader in readers)
             {
@@ -30,15 +29,10 @@ namespace osu.Game.Beatmaps.IO
             throw new IOException(@"Unknown file format");
         }
 
-        protected static void AddReader<T>(Func<BasicStorage, string, bool> test) where T : ArchiveReader
+        protected static void AddReader<T>(Func<Storage, string, bool> test) where T : ArchiveReader
         {
             readers.Add(new Reader { Test = test, Type = typeof(T) });
         }
-
-        /// <summary>
-        /// Reads the beatmap metadata from this archive.
-        /// </summary>
-        public abstract BeatmapMetadata ReadMetadata();
 
         /// <summary>
         /// Gets a list of beatmap file names.
@@ -64,11 +58,9 @@ namespace osu.Game.Beatmaps.IO
                 if (input == null)
                     return null;
 
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    input.CopyTo(ms);
-                    return ms.ToArray();
-                }
+                byte[] buffer = new byte[input.Length];
+                input.Read(buffer, 0, buffer.Length);
+                return buffer;
             }
         }
     }

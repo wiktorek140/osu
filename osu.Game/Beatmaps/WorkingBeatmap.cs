@@ -1,91 +1,82 @@
 ﻿// Copyright (c) 2007-2017 ppy Pty Ltd <contact@ppy.sh>.
 // Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu/master/LICENCE
 
-using System;
-using System.IO;
 using osu.Framework.Audio.Track;
+using osu.Framework.Configuration;
 using osu.Framework.Graphics.Textures;
-using osu.Game.Beatmaps.Formats;
-using osu.Game.Beatmaps.IO;
 using osu.Game.Database;
+using osu.Game.Rulesets.Mods;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace osu.Game.Beatmaps
 {
-    public class WorkingBeatmap : IDisposable
+    public abstract class WorkingBeatmap : IDisposable
     {
         public readonly BeatmapInfo BeatmapInfo;
 
         public readonly BeatmapSetInfo BeatmapSetInfo;
-        private readonly BeatmapDatabase database;
+
+        public readonly BeatmapMetadata Metadata;
+
+        public readonly Bindable<IEnumerable<Mod>> Mods = new Bindable<IEnumerable<Mod>>(new Mod[] { });
 
         public readonly bool WithStoryboard;
 
-        private ArchiveReader getReader() => database?.GetReader(BeatmapSetInfo);
-
-        private Texture background;
-        private object backgroundLock = new object();
-        public Texture Background
+        protected WorkingBeatmap(BeatmapInfo beatmapInfo, bool withStoryboard = false)
         {
-            get
-            {
-                lock (backgroundLock)
-                {
-                    if (background != null) return background;
+            BeatmapInfo = beatmapInfo;
+            BeatmapSetInfo = beatmapInfo.BeatmapSet;
+            Metadata = beatmapInfo.Metadata ?? BeatmapSetInfo.Metadata;
+            WithStoryboard = withStoryboard;
 
-                    if (BeatmapInfo?.Metadata?.BackgroundFile == null) return null;
-
-                    try
-                    {
-                        using (var reader = getReader())
-                            background = new TextureStore(new RawTextureLoaderStore(reader), false).Get(BeatmapInfo.Metadata.BackgroundFile);
-                    }
-                    catch { }
-
-                    return background;
-                }
-            }
-            set { lock (backgroundLock) background = value; }
+            Mods.ValueChanged += mods => applyRateAdjustments();
         }
 
+        private void applyRateAdjustments()
+        {
+            var t = track;
+            if (t == null) return;
+
+            t.ResetSpeedAdjustments();
+            foreach (var mod in Mods.Value.OfType<IApplicableToClock>())
+                mod.ApplyToClock(t);
+        }
+
+        protected abstract Beatmap GetBeatmap();
+        protected abstract Texture GetBackground();
+        protected abstract Track GetTrack();
+
         private Beatmap beatmap;
-        private object beatmapLock = new object();
+        private readonly object beatmapLock = new object();
         public Beatmap Beatmap
         {
             get
             {
                 lock (beatmapLock)
                 {
-                    if (beatmap != null) return beatmap;
-
-                    try
-                    {
-                        using (var reader = getReader())
-                        {
-                            BeatmapDecoder decoder;
-                            using (var stream = new StreamReader(reader.GetStream(BeatmapInfo.Path)))
-                            {
-                                decoder = BeatmapDecoder.GetDecoder(stream);
-                                beatmap = decoder?.Decode(stream);
-                            }
-
-
-                            if (WithStoryboard && beatmap != null && BeatmapSetInfo.StoryboardFile != null)
-                                using (var stream = new StreamReader(reader.GetStream(BeatmapSetInfo.StoryboardFile)))
-                                    decoder?.Decode(stream, beatmap);
-                        }
-                    }
-                    catch { }
-
-                    return beatmap;
+                    return beatmap ?? (beatmap = GetBeatmap());
                 }
             }
-            set { lock (beatmapLock) beatmap = value; }
         }
 
-        private ArchiveReader trackReader;
-        private AudioTrack track;
-        private object trackLock = new object();
-        public AudioTrack Track
+        private readonly object backgroundLock = new object();
+        private Texture background;
+        public Texture Background
+        {
+            get
+            {
+                lock (backgroundLock)
+                {
+                    return background ?? (background = GetBackground());
+                }
+            }
+        }
+
+        private Track track;
+        private readonly object trackLock = new object();
+        public Track Track
         {
             get
             {
@@ -93,59 +84,30 @@ namespace osu.Game.Beatmaps
                 {
                     if (track != null) return track;
 
-                    try
-                    {
-                        //store a reference to the reader as we may continue accessing the stream in the background.
-                        trackReader = getReader();
-                        var trackData = trackReader?.GetStream(BeatmapInfo.Metadata.AudioFile);
-                        if (trackData != null)
-                            track = new AudioTrackBass(trackData);
-                    }
-                    catch { }
-
+                    track = GetTrack();
+                    applyRateAdjustments();
                     return track;
                 }
             }
-            set { lock (trackLock) track = value; }
         }
 
         public bool TrackLoaded => track != null;
 
-        public WorkingBeatmap(Beatmap beatmap)
+        public void TransferTo(WorkingBeatmap other)
         {
-            this.beatmap = beatmap;
+            if (track != null && BeatmapInfo.AudioEquals(other.BeatmapInfo))
+                other.track = track;
+
+            if (background != null && BeatmapInfo.BackgroundEquals(other.BeatmapInfo))
+                other.background = background;
         }
 
-        public WorkingBeatmap(BeatmapInfo beatmapInfo, BeatmapSetInfo beatmapSetInfo, BeatmapDatabase database, bool withStoryboard = false)
+        public virtual void Dispose()
         {
-            BeatmapInfo = beatmapInfo;
-            BeatmapSetInfo = beatmapSetInfo;
-            this.database = database;
-            this.WithStoryboard = withStoryboard;
-        }
-
-        private bool isDisposed;
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!isDisposed)
-            {
-                track?.Dispose();
-                background?.Dispose();
-                isDisposed = true;
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        public void TransferTo(WorkingBeatmap working)
-        {
-            if (track != null && BeatmapInfo.AudioEquals(working.BeatmapInfo))
-                working.track = track;
+            track?.Dispose();
+            track = null;
+            background?.Dispose();
+            background = null;
         }
     }
 }

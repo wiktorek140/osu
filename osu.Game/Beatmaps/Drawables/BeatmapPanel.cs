@@ -5,7 +5,6 @@ using System;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Sprites;
 using osu.Game.Database;
 using osu.Game.Graphics;
@@ -18,14 +17,15 @@ using osu.Game.Graphics.Sprites;
 
 namespace osu.Game.Beatmaps.Drawables
 {
-    class BeatmapPanel : Panel
+    public class BeatmapPanel : Panel
     {
         public BeatmapInfo Beatmap;
-        private Sprite background;
+        private readonly Sprite background;
 
         public Action<BeatmapPanel> GainedSelection;
         public Action<BeatmapPanel> StartRequested;
-        private Triangles triangles;
+        private readonly Triangles triangles;
+        private readonly StarCounter starCounter;
 
         protected override void Selected()
         {
@@ -56,6 +56,16 @@ namespace osu.Game.Beatmaps.Drawables
             return base.OnClick(state);
         }
 
+        protected override void ApplyState(PanelSelectedState last = PanelSelectedState.Hidden)
+        {
+            if (!IsLoaded) return;
+
+            base.ApplyState(last);
+
+            if (last == PanelSelectedState.Hidden && State != last)
+                starCounter.ReplayAnimation();
+        }
+
         public BeatmapPanel(BeatmapInfo beatmap)
         {
             Beatmap = beatmap;
@@ -74,10 +84,10 @@ namespace osu.Game.Beatmaps.Drawables
                     ColourLight = OsuColour.FromHex(@"3a7285"),
                     ColourDark = OsuColour.FromHex(@"123744")
                 },
-                new FlowContainer
+                new FillFlowContainer
                 {
                     Padding = new MarginPadding(5),
-                    Direction = FlowDirections.Horizontal,
+                    Direction = FillDirection.Horizontal,
                     AutoSizeAxes = Axes.Both,
                     Anchor = Anchor.CentreLeft,
                     Origin = Anchor.CentreLeft,
@@ -86,22 +96,19 @@ namespace osu.Game.Beatmaps.Drawables
                         new DifficultyIcon(beatmap)
                         {
                             Scale = new Vector2(1.8f),
-                            Anchor = Anchor.CentreLeft,
-                            Origin = Anchor.CentreLeft,
                         },
-                        new FlowContainer
+                        new FillFlowContainer
                         {
                             Padding = new MarginPadding { Left = 5 },
-                            Spacing = new Vector2(0, 5),
-                            Direction = FlowDirections.Vertical,
+                            Direction = FillDirection.Vertical,
                             AutoSizeAxes = Axes.Both,
                             Children = new Drawable[]
                             {
-                                new FlowContainer
+                                new FillFlowContainer
                                 {
-                                    Direction = FlowDirections.Horizontal,
-                                    AutoSizeAxes = Axes.Both,
+                                    Direction = FillDirection.Horizontal,
                                     Spacing = new Vector2(4, 0),
+                                    AutoSizeAxes = Axes.Both,
                                     Children = new[]
                                     {
                                         new OsuSpriteText
@@ -130,7 +137,11 @@ namespace osu.Game.Beatmaps.Drawables
                                         },
                                     }
                                 },
-                                new StarCounter { Count = beatmap.StarDifficulty, StarSize = 8 }
+                                starCounter = new StarCounter
+                                {
+                                    Count = (float)beatmap.StarDifficulty,
+                                    Scale = new Vector2(0.8f),
+                                }
                             }
                         }
                     }

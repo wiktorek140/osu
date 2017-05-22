@@ -2,20 +2,26 @@
 // Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu/master/LICENCE
 
 using System;
+using System.ComponentModel;
 using Newtonsoft.Json;
+using osu.Game.Users;
 
 namespace osu.Game.Online.Chat
 {
-    public class Message
+    public class Message : IComparable<Message>, IEquatable<Message>
     {
         [JsonProperty(@"message_id")]
-        public long Id;
+        public readonly long Id;
 
-        [JsonProperty(@"user_id")]
+        //todo: this should be inside sender.
+        [JsonProperty(@"sender_id")]
         public int UserId;
 
-        [JsonProperty(@"channel_id")]
-        public int ChannelId;
+        [JsonProperty(@"target_type")]
+        public TargetType TargetType;
+
+        [JsonProperty(@"target_id")]
+        public int TargetId;
 
         [JsonProperty(@"timestamp")]
         public DateTimeOffset Timestamp;
@@ -24,11 +30,30 @@ namespace osu.Game.Online.Chat
         public string Content;
 
         [JsonProperty(@"sender")]
-        public User User;
+        public User Sender;
 
         [JsonConstructor]
         public Message()
         {
         }
+
+        public Message(long id)
+        {
+            Id = id;
+        }
+
+        public int CompareTo(Message other) => Id.CompareTo(other.Id);
+
+        public bool Equals(Message other) => Id == other?.Id;
+
+        public override int GetHashCode() => Id.GetHashCode();
+    }
+
+    public enum TargetType
+    {
+        [Description(@"channel")]
+        Channel,
+        [Description(@"user")]
+        User
     }
 }

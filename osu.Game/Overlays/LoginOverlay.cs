@@ -4,21 +4,18 @@
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Sprites;
-using osu.Framework.Graphics.Transformations;
 using osu.Game.Graphics;
-using osu.Game.Overlays.Options.Sections.General;
-using OpenTK;
+using osu.Game.Overlays.Settings.Sections.General;
 using OpenTK.Graphics;
 
 namespace osu.Game.Overlays
 {
-    class LoginOverlay : FocusedOverlayContainer
+    internal class LoginOverlay : FocusedOverlayContainer
     {
-        private LoginOptions optionsSection;
+        private LoginSettings settingsSection;
 
-        const float transition_time = 400;
+        private const float transition_time = 400;
 
         public LoginOverlay()
         {
@@ -44,7 +41,7 @@ namespace osu.Game.Overlays
                     AutoSizeEasing = EasingTypes.OutQuint,
                     Children = new Drawable[]
                     {
-                        optionsSection = new LoginOptions
+                        settingsSection = new LoginSettings
                         {
                             Padding = new MarginPadding(10),
                         },
@@ -66,15 +63,17 @@ namespace osu.Game.Overlays
         {
             base.PopIn();
 
-            optionsSection.Bounding = true;
+            settingsSection.Bounding = true;
             FadeIn(transition_time, EasingTypes.OutQuint);
+
+            settingsSection.TriggerFocus();
         }
 
         protected override void PopOut()
         {
             base.PopOut();
 
-            optionsSection.Bounding = false;
+            settingsSection.Bounding = false;
             FadeOut(transition_time);
         }
     }

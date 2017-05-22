@@ -3,12 +3,12 @@
 
 using System;
 using osu.Framework.Allocation;
+using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Sprites;
-using osu.Framework.Graphics.Transformations;
+using osu.Framework.Graphics.Transforms;
 using osu.Framework.Input;
 using osu.Game.Graphics;
 using OpenTK;
@@ -34,26 +34,17 @@ namespace osu.Game.Overlays.Notifications
         public virtual bool DisplayOnTop => true;
 
         protected NotificationLight Light;
-        private CloseButton closeButton;
+        private readonly CloseButton closeButton;
         protected Container IconContent;
-        private Container content;
+        private readonly Container content;
 
         protected override Container<Drawable> Content => content;
 
         protected Container NotificationContent;
 
-        private bool read;
+        public virtual bool Read { get; set; }
 
-        public virtual bool Read
-        {
-            get { return read; }
-            set
-            {
-                read = value;
-            }
-        }
-
-        public Notification()
+        protected Notification()
         {
             RelativeSizeAxes = Axes.X;
             AutoSizeAxes = Axes.Y;
@@ -89,7 +80,6 @@ namespace osu.Game.Overlays.Notifications
                                 IconContent = new Container
                                 {
                                     Size = new Vector2(40),
-                                    Colour = Color4.DarkGray,
                                     Masking = true,
                                     CornerRadius = 5,
                                 },
@@ -162,7 +152,7 @@ namespace osu.Game.Overlays.Notifications
             Expire();
         }
 
-        class CloseButton : ClickableContainer
+        private class CloseButton : ClickableContainer
         {
             private Color4 hoverColour;
 
@@ -176,7 +166,9 @@ namespace osu.Game.Overlays.Notifications
                     new TextAwesome
                     {
                         Anchor = Anchor.Centre,
+                        Origin = Anchor.Centre,
                         Icon = FontAwesome.fa_times_circle,
+                        TextSize = 20
                     }
                 };
             }
@@ -212,7 +204,7 @@ namespace osu.Game.Overlays.Notifications
                 {
                     pulsate = value;
 
-                    pulsateLayer.ClearTransformations();
+                    pulsateLayer.ClearTransforms();
                     pulsateLayer.Alpha = 1;
 
                     if (pulsate)
@@ -257,7 +249,7 @@ namespace osu.Game.Overlays.Notifications
             }
 
             [BackgroundDependencyLoader]
-            private void load(OsuColour colours)
+            private void load()
             {
                 Size = new Vector2(6, 15);
 

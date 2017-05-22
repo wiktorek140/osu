@@ -3,28 +3,29 @@
 
 using System;
 using osu.Framework.Configuration;
-using osu.Framework.GameModes;
+using osu.Framework.Screens;
 using osu.Game.Configuration;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Game.Overlays;
 using osu.Framework.Input;
-using osu.Game.Input;
 using OpenTK.Input;
 using osu.Framework.Logging;
 using osu.Game.Graphics.UserInterface.Volume;
-using osu.Game.Database;
 using osu.Framework.Allocation;
-using osu.Framework.Graphics.Transformations;
 using osu.Framework.Timing;
-using osu.Game.Modes;
 using osu.Game.Overlays.Toolbar;
 using osu.Game.Screens;
 using osu.Game.Screens.Menu;
 using OpenTK;
 using System.Linq;
-using osu.Framework.Graphics.Primitives;
-using System.Collections.Generic;
+using System.Threading.Tasks;
+using osu.Framework.Threading;
+using osu.Game.Database;
+using osu.Game.Graphics;
+using osu.Game.Rulesets.Scoring;
+using osu.Game.Overlays.Notifications;
+using osu.Game.Screens.Play;
 
 namespace osu.Game
 {
@@ -38,25 +39,36 @@ namespace osu.Game
 
         private NotificationManager notificationManager;
 
-        private MainMenu mainMenu => modeStack?.ChildGameMode as MainMenu;
-        private Intro intro => modeStack as Intro;
+        private DialogOverlay dialogOverlay;
 
-        private OsuGameMode modeStack;
+        private Intro intro
+        {
+            get
+            {
+                Screen s = screenStack;
+                while (s != null && !(s is Intro))
+                    s = s.ChildScreen;
+                return s as Intro;
+            }
+        }
+
+        private OsuScreen screenStack;
 
         private VolumeControl volume;
 
-        public Bindable<PlayMode> PlayMode;
+        private Bindable<int> configRuleset;
+        public Bindable<RulesetInfo> Ruleset = new Bindable<RulesetInfo>();
 
-        string[] args;
+        private readonly string[] args;
 
-        private OptionsOverlay options;
+        private SettingsOverlay settings;
 
         public OsuGame(string[] args = null)
         {
             this.args = args;
         }
 
-        public void ToggleOptions() => options.ToggleVisibility();
+        public void ToggleSettings() => settings.ToggleVisibility();
 
         [BackgroundDependencyLoader]
         private void load()
@@ -70,17 +82,51 @@ namespace osu.Game
             if (args?.Length > 0)
             {
                 var paths = args.Where(a => !a.StartsWith(@"-"));
-                ImportBeatmaps(paths);
+                Task.Run(() => BeatmapDatabase.Import(paths));
             }
 
             Dependencies.Cache(this);
 
-            PlayMode = LocalConfig.GetBindable<PlayMode>(OsuConfig.PlayMode);
+            configRuleset = LocalConfig.GetBindable<int>(OsuSetting.Ruleset);
+            Ruleset.Value = RulesetDatabase.GetRuleset(configRuleset.Value);
+            Ruleset.ValueChanged += r => configRuleset.Value = r.ID ?? 0;
         }
 
-        public void ImportBeatmaps(IEnumerable<string> paths)
+        private ScheduledDelegate scoreLoad;
+
+        protected void LoadScore(Score s)
         {
-            Schedule(delegate { Dependencies.Get<BeatmapDatabase>().Import(paths); });
+            scoreLoad?.Cancel();
+
+            var menu = intro.ChildScreen;
+
+            if (menu == null)
+            {
+                scoreLoad = Schedule(() => LoadScore(s));
+                return;
+            }
+
+            if (!menu.IsCurrentScreen)
+            {
+                menu.MakeCurrent();
+                Delay(500);
+                scoreLoad = Schedule(() => LoadScore(s));
+                return;
+            }
+
+            if (s.Beatmap == null)
+            {
+                notificationManager.Post(new SimpleNotification
+                {
+                    Text = @"Tried to load a score for a beatmap we don't have!",
+                    Icon = FontAwesome.fa_life_saver,
+                });
+                return;
+            }
+
+            Beatmap.Value = BeatmapDatabase.GetWorkingBeatmap(s.Beatmap);
+
+            menu.Push(new PlayerLoader(new ReplayPlayer(s.Replay)));
         }
 
         protected override void LoadComplete()
@@ -99,72 +145,84 @@ namespace osu.Game
                 },
                 volume = new VolumeControl(),
                 overlayContent = new Container{ RelativeSizeAxes = Axes.Both },
+                new OnScreenDisplay(),
                 new GlobalHotkeys //exists because UserInputManager is at a level below us.
                 {
                     Handler = globalHotkeyPressed
                 }
             });
 
-            (modeStack = new Intro()).Preload(this, d =>
+            LoadComponentAsync(screenStack = new Loader(), d =>
             {
-                modeStack.ModePushed += modeAdded;
-                modeStack.Exited += modeRemoved;
-                mainContent.Add(modeStack);
+                screenStack.ModePushed += screenAdded;
+                screenStack.Exited += screenRemoved;
+                mainContent.Add(screenStack);
             });
 
             //overlay elements
-            (chat = new ChatOverlay { Depth = 0 }).Preload(this, overlayContent.Add);
-            (options = new OptionsOverlay { Depth = -1 }).Preload(this, overlayContent.Add);
-            (musicController = new MusicController()
+            LoadComponentAsync(chat = new ChatOverlay { Depth = -1 }, mainContent.Add);
+            LoadComponentAsync(settings = new SettingsOverlay { Depth = -1 }, overlayContent.Add);
+            LoadComponentAsync(musicController = new MusicController
             {
                 Depth = -2,
                 Position = new Vector2(0, Toolbar.HEIGHT),
                 Anchor = Anchor.TopRight,
                 Origin = Anchor.TopRight,
-            }).Preload(this, overlayContent.Add);
+            }, overlayContent.Add);
 
-            (notificationManager = new NotificationManager
+            LoadComponentAsync(notificationManager = new NotificationManager
             {
                 Depth = -2,
                 Anchor = Anchor.TopRight,
                 Origin = Anchor.TopRight,
-            }).Preload(this, overlayContent.Add);
+            }, overlayContent.Add);
 
-            Dependencies.Cache(options);
+            LoadComponentAsync(dialogOverlay = new DialogOverlay
+            {
+                Depth = -4,
+            }, overlayContent.Add);
+
+            Logger.NewEntry += entry =>
+            {
+                if (entry.Level < LogLevel.Important) return;
+
+                notificationManager.Post(new SimpleNotification
+                {
+                    Text = $@"{entry.Level}: {entry.Message}"
+                });
+            };
+
+            Dependencies.Cache(settings);
+            Dependencies.Cache(chat);
             Dependencies.Cache(musicController);
             Dependencies.Cache(notificationManager);
+            Dependencies.Cache(dialogOverlay);
 
-            (Toolbar = new Toolbar
+            LoadComponentAsync(Toolbar = new Toolbar
             {
                 Depth = -3,
-                OnHome = delegate { mainMenu?.MakeCurrent(); },
-                OnPlayModeChange = delegate (PlayMode m) { PlayMode.Value = m; },
-            }).Preload(this, t =>
-            {
-                PlayMode.ValueChanged += delegate { Toolbar.SetGameMode(PlayMode.Value); };
-                PlayMode.TriggerChange();
-                overlayContent.Add(Toolbar);
-            });
+                OnHome = delegate { intro?.ChildScreen?.MakeCurrent(); },
+            }, overlayContent.Add);
 
-            options.StateChanged += delegate
+            settings.StateChanged += delegate
             {
-                switch (options.State)
+                switch (settings.State)
                 {
                     case Visibility.Hidden:
-                        intro.MoveToX(0, OptionsOverlay.TRANSITION_LENGTH, EasingTypes.OutQuint);
+                        intro.MoveToX(0, SettingsOverlay.TRANSITION_LENGTH, EasingTypes.OutQuint);
                         break;
                     case Visibility.Visible:
-                        intro.MoveToX(OptionsOverlay.SIDEBAR_WIDTH / 2, OptionsOverlay.TRANSITION_LENGTH, EasingTypes.OutQuint);
+                        intro.MoveToX(SettingsOverlay.SIDEBAR_WIDTH / 2, SettingsOverlay.TRANSITION_LENGTH, EasingTypes.OutQuint);
                         break;
                 }
             };
 
-            Cursor.Alpha = 0;
+            Cursor.State = Visibility.Hidden;
         }
 
         private bool globalHotkeyPressed(InputState state, KeyDownEventArgs args)
         {
-            if (args.Repeat) return false;
+            if (args.Repeat || intro == null) return false;
 
             switch (args.Key)
             {
@@ -173,9 +231,11 @@ namespace osu.Game
                     return true;
                 case Key.PageUp:
                 case Key.PageDown:
-                    var rate = ((Clock as ThrottledFrameClock).Source as StopwatchClock).Rate * (args.Key == Key.PageUp ? 1.1f : 0.9f);
-                    ((Clock as ThrottledFrameClock).Source as StopwatchClock).Rate = rate;
-                    Logger.Log($@"Adjusting game clock to {rate}", LoggingTarget.Debug);
+                    var swClock = (Clock as ThrottledFrameClock)?.Source as StopwatchClock;
+                    if (swClock == null) return false;
+
+                    swClock.Rate *= args.Key == Key.PageUp ? 1.1f : 0.9f;
+                    Logger.Log($@"Adjusting game clock to {swClock.Rate}", LoggingTarget.Debug);
                     return true;
             }
 
@@ -187,29 +247,36 @@ namespace osu.Game
                         Toolbar.ToggleVisibility();
                         return true;
                     case Key.O:
-                        options.ToggleVisibility();
+                        settings.ToggleVisibility();
                         return true;
                 }
             }
 
-            return base.OnKeyDown(state, args);
+            return false;
         }
 
-        public Action<GameMode> ModeChanged;
+        public event Action<Screen> ScreenChanged;
 
         private Container mainContent;
 
         private Container overlayContent;
 
-        private void modeChanged(GameMode newMode)
-        {
-            // - Ability to change window size
-            // - Ability to adjust music playback
-            // - Frame limiter changes
+        private OsuScreen currentScreen;
 
-            //central game mode change logic.
-            if ((newMode as OsuGameMode)?.ShowOverlays != true)
+        private void screenChanged(Screen newScreen)
+        {
+            currentScreen = newScreen as OsuScreen;
+
+            if (currentScreen == null)
             {
+                Exit();
+                return;
+            }
+
+            //central game screen change logic.
+            if (!currentScreen.ShowOverlays)
+            {
+                settings.State = Visibility.Hidden;
                 Toolbar.State = Visibility.Hidden;
                 musicController.State = Visibility.Hidden;
                 chat.State = Visibility.Hidden;
@@ -219,47 +286,56 @@ namespace osu.Game
                 Toolbar.State = Visibility.Visible;
             }
 
-            Cursor.FadeIn(100);
-
-            ModeChanged?.Invoke(newMode);
-
-            if (newMode == null)
-                Host.Exit();
+            ScreenChanged?.Invoke(newScreen);
         }
 
         protected override bool OnExiting()
         {
-            if (!intro.DidLoadMenu || intro.ChildGameMode != null)
+            if (screenStack.ChildScreen == null) return false;
+
+            if (intro == null) return true;
+
+            if (!intro.DidLoadMenu || intro.ChildScreen != null)
             {
-                Scheduler.Add(delegate
-                {
-                    intro.MakeCurrent();
-                });
+                Scheduler.Add(intro.MakeCurrent);
                 return true;
             }
 
             return base.OnExiting();
         }
 
+        /// <summary>
+        /// Use to programatically exit the game as if the user was triggering via alt-f4.
+        /// Will keep persisting until an exit occurs (exit may be blocked multiple times).
+        /// </summary>
+        public void GracefullyExit()
+        {
+            if (!OnExiting())
+                Exit();
+            else
+                Scheduler.AddDelayed(GracefullyExit, 2000);
+        }
+
         protected override void UpdateAfterChildren()
         {
             base.UpdateAfterChildren();
 
-            if (modeStack.ChildGameMode != null)
-                modeStack.ChildGameMode.Padding = new MarginPadding { Top = Toolbar.Position.Y + Toolbar.DrawHeight };
+            mainContent.Padding = new MarginPadding { Top = Toolbar.Position.Y + Toolbar.DrawHeight };
+
+            Cursor.State = currentScreen?.HasLocalCursorDisplayed == false ? Visibility.Visible : Visibility.Hidden;
         }
 
-        private void modeAdded(GameMode newMode)
+        private void screenAdded(Screen newScreen)
         {
-            newMode.ModePushed += modeAdded;
-            newMode.Exited += modeRemoved;
+            newScreen.ModePushed += screenAdded;
+            newScreen.Exited += screenRemoved;
 
-            modeChanged(newMode);
+            screenChanged(newScreen);
         }
 
-        private void modeRemoved(GameMode newMode)
+        private void screenRemoved(Screen newScreen)
         {
-            modeChanged(newMode);
+            screenChanged(newScreen);
         }
     }
 }

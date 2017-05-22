@@ -2,18 +2,14 @@
 // Licensed under the MIT Licence - https://raw.githubusercontent.com/ppy/osu/master/LICENCE
 
 using System;
-using System.Diagnostics;
 using osu.Framework.Allocation;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Sample;
 using osu.Framework.Graphics;
-using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.Textures;
-using osu.Framework.Graphics.Transformations;
 using osu.Framework.Input;
-using osu.Framework.MathUtils;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Backgrounds;
 using OpenTK;
@@ -26,24 +22,24 @@ namespace osu.Game.Screens.Menu
     /// </summary>
     public class OsuLogo : Container
     {
-        public Color4 OsuPink = OsuColour.FromHex(@"e967a1");
+        public readonly Color4 OsuPink = OsuColour.FromHex(@"e967a1");
 
-        private Sprite logo;
-        private CircularContainer logoContainer;
-        private Container logoBounceContainer;
-        private Container logoHoverContainer;
+        private readonly Sprite logo;
+        private readonly CircularContainer logoContainer;
+        private readonly Container logoBounceContainer;
+        private readonly Container logoHoverContainer;
 
-        private AudioSample sampleClick;
+        private SampleChannel sampleClick;
 
-        private Container colourAndTriangles;
+        private readonly Container colourAndTriangles;
 
         public Action Action;
 
-        public float SizeForFlow => logo == null ? 0 : logo.DrawSize.X * logo.Scale.X * logoBounceContainer.Scale.X * logoHoverContainer.Scale.X * 0.78f;
+        public float SizeForFlow => logo == null ? 0 : logo.DrawSize.X * logo.Scale.X * logoBounceContainer.Scale.X * logoHoverContainer.Scale.X * 0.74f;
 
-        private Sprite ripple;
+        private readonly Sprite ripple;
 
-        private Container rippleContainer;
+        private readonly Container rippleContainer;
 
         public bool Triangles
         {
@@ -53,10 +49,7 @@ namespace osu.Game.Screens.Menu
             }
         }
 
-        public override bool Contains(Vector2 screenSpacePos)
-        {
-            return logoContainer.Contains(screenSpacePos);
-        }
+        protected override bool InternalContains(Vector2 screenSpacePos) => logoContainer.Contains(screenSpacePos);
 
         public bool Ripple
         {
@@ -68,10 +61,16 @@ namespace osu.Game.Screens.Menu
         }
 
         public bool Interactive = true;
-        private Box flashLayer;
+        private readonly Box flashLayer;
+
+        private readonly Container impactContainer;
+
+        private const float default_size = 480;
 
         public OsuLogo()
         {
+            Size = new Vector2(default_size);
+
             Anchor = Anchor.Centre;
             Origin = Anchor.Centre;
 
@@ -97,8 +96,10 @@ namespace osu.Game.Screens.Menu
                                         logoContainer = new CircularContainer
                                         {
                                             Anchor = Anchor.Centre,
+                                            Origin = Anchor.Centre,
                                             RelativeSizeAxes = Axes.Both,
-                                            Scale = new Vector2(0.8f),
+                                            Scale = new Vector2(0.88f),
+                                            Masking = true,
                                             Children = new Drawable[]
                                             {
                                                 colourAndTriangles = new Container
@@ -142,9 +143,10 @@ namespace osu.Game.Screens.Menu
                                 {
                                     Anchor = Anchor.Centre,
                                     Origin = Anchor.Centre,
+                                    RelativeSizeAxes = Axes.Both,
                                     Children = new Drawable[]
                                     {
-                                        ripple = new Sprite()
+                                        ripple = new Sprite
                                         {
                                             Anchor = Anchor.Centre,
                                             Origin = Anchor.Centre,
@@ -153,11 +155,30 @@ namespace osu.Game.Screens.Menu
                                         }
                                     }
                                 },
+                                impactContainer = new CircularContainer
+                                {
+                                    Anchor = Anchor.Centre,
+                                    Origin = Anchor.Centre,
+                                    Alpha = 0,
+                                    BorderColour = Color4.White,
+                                    RelativeSizeAxes = Axes.Both,
+                                    BorderThickness = 10,
+                                    Masking = true,
+                                    Children = new Drawable[]
+                                    {
+                                        new Box
+                                        {
+                                            RelativeSizeAxes = Axes.Both,
+                                            AlwaysPresent = true,
+                                            Alpha = 0,
+                                        }
+                                    }
+                                },
                                 new MenuVisualisation
                                 {
                                     Anchor = Anchor.Centre,
                                     Origin = Anchor.Centre,
-                                    Size = logo.Size,
+                                    RelativeSizeAxes = Axes.Both,
                                     BlendingMode = BlendingMode.Additive,
                                     Alpha = 0.2f,
                                 }
@@ -195,7 +216,6 @@ namespace osu.Game.Screens.Menu
 
         protected override bool OnMouseUp(InputState state, MouseUpEventArgs args)
         {
-
             logoBounceContainer.ScaleTo(1f, 500, EasingTypes.OutElastic);
             return true;
         }
@@ -206,7 +226,7 @@ namespace osu.Game.Screens.Menu
 
             sampleClick.Play();
 
-            flashLayer.ClearTransformations();
+            flashLayer.ClearTransforms();
             flashLayer.Alpha = 0.4f;
             flashLayer.FadeOut(1500, EasingTypes.OutExpo);
 
@@ -217,13 +237,21 @@ namespace osu.Game.Screens.Menu
         protected override bool OnHover(InputState state)
         {
             if (!Interactive) return false;
-            logoHoverContainer.ScaleTo(1.2f, 500, EasingTypes.OutElastic);
+
+            logoHoverContainer.ScaleTo(1.1f, 500, EasingTypes.OutElastic);
             return true;
         }
 
         protected override void OnHoverLost(InputState state)
         {
             logoHoverContainer.ScaleTo(1, 500, EasingTypes.OutElastic);
+        }
+
+        public void Impact()
+        {
+            impactContainer.FadeOutFromOne(250, EasingTypes.In);
+            impactContainer.ScaleTo(0.96f);
+            impactContainer.ScaleTo(1.12f, 250);
         }
     }
 }

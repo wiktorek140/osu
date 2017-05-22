@@ -7,7 +7,7 @@ using osu.Game.Graphics;
 
 namespace osu.Game.Overlays.Toolbar
 {
-    class ToolbarNotificationButton : ToolbarOverlayToggleButton
+    internal class ToolbarNotificationButton : ToolbarOverlayToggleButton
     {
         protected override Anchor TooltipAnchor => Anchor.TopRight;
 
@@ -22,7 +22,6 @@ namespace osu.Game.Overlays.Toolbar
         private void load(NotificationManager notificationManager)
         {
             StateContainer = notificationManager;
-            Action = notificationManager.ToggleVisibility;
         }
     }
 }

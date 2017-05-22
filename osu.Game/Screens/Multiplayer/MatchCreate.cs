@@ -6,10 +6,15 @@ using System.Collections.Generic;
 
 namespace osu.Game.Screens.Multiplayer
 {
-    class MatchCreate : GameModeWhiteBox
+    internal class MatchCreate : ScreenWhiteBox
     {
         protected override IEnumerable<Type> PossibleChildren => new[] {
                 typeof(Match)
         };
+
+        public MatchCreate()
+        {
+            ValidForResume = false;
+        }
     }
 }
